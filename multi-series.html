@@ -1,0 +1,231 @@
+﻿<!DOCTYPE html>
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<script src="d3.v4.min.js"></script>
+		<link rel="stylesheet" href="line.css" />
+	</head>
+
+	<body>
+		<div id="container">
+			<div class="left">
+				<svg width="750" height="450"></svg>
+				
+			</div>
+			<div class="right">
+				
+			</div>
+			<span style="font-size: 10px;margin-left: 55px;color: gray;">单击隐藏，双击显示</span>
+		</div>
+
+		<script>
+			var svg = d3.select("svg"),
+				margin = {
+					top: 20,
+					right: 80,
+					bottom: 30,
+					left: 50
+				},
+				width = svg.attr("width") - margin.left - margin.right,
+				height = svg.attr("height") - margin.top - margin.bottom,
+				g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+			var parseTime = d3.timeParse("%Y%m%d");
+			var a = d3.rgb(0, 255, 127);
+			var b = d3.rgb(255, 215, 0);
+			var x = d3.scaleTime().range([0, width]),
+				y = d3.scaleLinear().range([height, 0]);
+
+			var color = d3.interpolateLab(a, b); //通过映射来为每条曲线变颜色
+			var line = d3.line()
+				.curve(d3.curveBasis)
+				.x(function(d) {
+					return x(d.date);
+				})
+				.y(function(d) {
+					return y(d.temperature);
+				});
+
+			d3.tsv("data.tsv", type, function(error, data) {
+				if(error) throw error;
+
+				var cities = data.columns.slice(1).map(function(id) {
+					return {
+						id: id,
+						name:id.replace(' ','_'),
+						values: data.map(function(d) {
+							return {
+								date: d.date,
+								temperature: d[id]
+							};
+						})
+					}; //这个return返回的是三个对象（三个城市）,每一个对象都有两个属性id，values。values里面还包含n个对象：每一个对象都有date时间属性，temperature温度属性。
+
+				});
+
+				//console.log(cities)
+				x.domain(d3.extent(data, function(d) { //console.log(d.date); 
+					return d.date;
+				}));
+
+				y.domain([
+					d3.min(cities, function(c) {
+						return d3.min(c.values, function(d) {
+							return d.temperature;
+						});
+					}),
+					d3.max(cities, function(c) {
+						return d3.max(c.values, function(d) {
+							return d.temperature;
+						});
+					})
+				]);
+
+				var z = d3.scaleBand()
+					.domain(cities.map(function(c) {
+						return c.id;
+					}))
+					.range([0, 1]);
+
+				g.append("g")
+					.attr("class", "axis")
+					.attr("transform", "translate(0," + height + ")")
+					.call(d3.axisBottom(x)).append("text")
+					.attr("x", width)
+					.attr("dy", "1.5em")
+					.attr('dx', '2.5em')
+					.attr("fill", "gold")
+					.text("日期, /月");
+				g.append("g")
+					.attr("class", "axis")
+					.call(d3.axisLeft(y))
+					.append("text")
+					.attr("transform", "rotate(-90)")
+					.attr("y", 6)
+					.attr("dy", "1.1em")
+					.attr('dx', '2.5em')
+					.attr("fill", "gold")
+					.text("Temperature, ºF");
+					
+                g.append('text').text('城市温度数据')
+                .attr('x',width/2)
+                .attr('y',6);
+                
+				var city = g.selectAll(".city")
+					.data(cities) //数据里面有三个id代表三座城市三条曲线，每一个id并列地位的values都有两个属性：时间（x轴）和温度值（y轴）
+					.enter()
+					.append("g")
+					.attr("class", "city")
+					.attr("id",function(d){
+						return d.name+"_city";
+					})
+
+				var city_path = city.append("path")
+					.attr("class", "line")
+					.attr("d", function(d) {
+						return line(d.values);
+					})
+					.style("stroke", function(d) {
+						return color(z(d.id));
+					});
+
+				var cityText=city.append("text")
+					.datum(function(d) {
+						return {
+							id: d.id,
+							value: d.values[d.values.length - 1]
+						};
+					})
+					.attr("transform", function(d) {
+						return "translate(" + x(d.value.date) + "," + y(d.value.temperature) + ")";
+					})
+					.attr("x", 3)
+					.attr("dy", "0.35em")
+					.style("font", "12px sans-serif")
+					.text(function(d) {
+						return d.id;
+					})
+					.attr('class','text')
+					.attr('id',function(d){
+						return d.name+"_text"
+					});
+
+				var svg_3 = d3.select('.right')
+					.append("table")
+					.attr('class', 'legend');
+				
+				var tr = svg_3.append("tbody").selectAll("tr")
+					.data(cities, function(c) {
+						return c.id;
+					})
+					.enter()
+					.append("tr");
+//				var flag=1;
+			tr.on('click',function(d){	
+//						if(flag==1){
+		                d3.select('#'+d.name+'_city').style('opacity',0);
+						d3.select('#'+d.name+'_text').style('opacity',0);
+						d3.select('#'+d.name+'_tr').attr('fill','grey');
+//						flag=0;
+//						}
+//						else{
+//						d3.select('#'+d.name+'_city').style('opacity',1);
+//						d3.select('#'+d.name+'_text').style('opacity',1);	
+//						d3.select('#'+d.name+'_tr').attr('fill',color(z(d.id)));
+//						flag=1;
+//						}
+					});
+				
+			tr.on('dblclick',function(d){
+				        d3.select('#'+d.name+'_city').style('opacity',1);
+						d3.select('#'+d.name+'_text').style('opacity',1);	
+						d3.select('#'+d.name+'_tr').attr('fill',color(z(d.id)));
+			});
+//					var flag=1;
+//					tr.on('click',function(d){	
+//						if(flag==1){
+//		                d3.select('path.line').style('opacity',0);
+//						d3.select('text.text').style('opacity',0);
+//						d3.select('rect').attr('fill','grey');
+//						flag=0;
+//						}
+//						else{
+//						d3.select('path.line').style('opacity',1);
+//						d3.select('text.text').style('opacity',1);	
+//						d3.select('rect').attr('fill',color(z(d.id)));
+//						flag=1;
+//						}
+//					});
+
+				//第一列：矩形标签
+				tr.append("td").append("svg").attr("width", '16').attr("height", '16').append("rect")
+					.attr("width", '16').attr("height", '16')
+					.attr("fill", function(d) {
+						return color(z(d.id));
+					}).attr('id',function(d){
+						return d.name+"_tr"
+					});
+				//第二列：城市名称
+				var td_2 = tr.append("td").text(function(d) {
+					return d.id;
+				});
+				
+
+//最上头的文件读取函数的结束标签。
+			});
+
+			function type(d, _, columns) {
+				d.date = parseTime(d.date);
+				//console.log(d.date);
+				for(var i = 1, n = columns.length, c; i < n; ++i)
+					d[c = columns[i]] = +d[c];
+				//console.log(d[c]);
+				return d;
+
+			}
+			//设计legend分别控制每一条曲线的显现或隐藏
+		</script>
+	</body>
+
+</html>
